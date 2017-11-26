@@ -15,6 +15,7 @@ import io.reactivex.schedulers.Schedulers;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import net.kwatts.powtools.adapters.RideListAdapter;
 import net.kwatts.powtools.database.Attribute;
 import net.kwatts.powtools.database.Moment;
 import net.kwatts.powtools.database.Ride;
@@ -30,7 +31,7 @@ public class RidesListActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_ride_viewer);
+        setContentView(R.layout.activity_rides_list);
 
         setupToolbar();
 
