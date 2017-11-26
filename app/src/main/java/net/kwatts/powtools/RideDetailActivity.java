@@ -38,8 +38,8 @@ import java.util.concurrent.TimeUnit;
 import net.kwatts.powtools.database.Attribute;
 import net.kwatts.powtools.database.Moment;
 
-public class MapActivity extends AppCompatActivity implements OnMapReadyCallback {
-    public static final String TAG = MapActivity.class.getSimpleName();
+public class RideDetailActivity extends AppCompatActivity implements OnMapReadyCallback {
+    public static final String TAG = RideDetailActivity.class.getSimpleName();
     public static final String RIDE_ID = "EXTRA_RIDE_ID";
 
     ArrayMap<Long, LatLng> timeLocationMap = new ArrayMap<>();
@@ -55,7 +55,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate: ");
-        setContentView(R.layout.maps_activity);
+        setContentView(R.layout.activity_ride_detail);
 
         ArrayList<Entry> timeSpeedMap = new ArrayList<>();
 
