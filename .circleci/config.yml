@@ -5,6 +5,7 @@ jobs:
     working_directory: ~/android-ponewheel
     docker:
       - image: circleci/android:api-26-alpha
+        cmd: ["/bin/bash"]
     steps:
       - checkout
       - run:
