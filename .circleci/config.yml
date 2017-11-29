@@ -1,5 +1,5 @@
 version: 2
-
+executorType: docker
 containerInfo:
   - image: circleci/android:api-27-alpha
   cmd: ["/bin/bash"]
