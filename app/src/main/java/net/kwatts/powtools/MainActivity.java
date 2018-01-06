@@ -27,7 +27,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Chronometer;
 import android.widget.ScrollView;
-import android.widget.Toast;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.github.mikephil.charting.charts.PieChart;
@@ -53,11 +52,11 @@ import net.kwatts.powtools.util.BluetoothUtilImpl;
 import net.kwatts.powtools.util.SharedPreferencesUtil;
 import net.kwatts.powtools.util.debugdrawer.DebugDrawerMockBle;
 import net.kwatts.powtools.view.AlertsMvpController;
+import net.kwatts.powtools.view.RideModeView;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
-import org.honorato.multistatetogglebutton.MultiStateToggleButton;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -101,8 +100,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
     private static final boolean ONEWHEEL_LOGGING = true;
 
-    MultiStateToggleButton mRideModeToggleButton;
-
     public VibrateService mVibrateService;
     private android.os.Handler mLoggingHandler = new Handler();
 
@@ -118,6 +115,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     Ride ride;
     private DisposableObserver<Address> rxLocationObserver;
     private AlertsMvpController alertsController;
+    private RideModeView rideModeView;
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onEvent(NotificationEvent event){
@@ -269,7 +267,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         mChronometer = findViewById(R.id.chronometer);
         initBatteryChart();
         initLightSettings();
-        initRideModeButtons();
+        rideModeView = new RideModeView(this, mOWDevice);
 
         new DebugDrawer.Builder(this)
                 .modules(
@@ -836,28 +834,4 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
 
 
-    public void initRideModeButtons() {
-        mRideModeToggleButton = this.findViewById(R.id.mstb_multi_ridemodes);
-        if (mOWDevice.isOneWheelPlus.get()) {
-            mRideModeToggleButton.setElements(getResources().getStringArray(R.array.owplus_ridemode_array));
-        } else {
-            mRideModeToggleButton.setElements(getResources().getStringArray(R.array.ow_ridemode_array));
-        }
-
-        mRideModeToggleButton.setOnValueChangedListener(position -> {
-            if (mOWDevice.isConnected.get()) {
-                Log.d(TAG, "mOWDevice.setRideMode button pressed:" + position);
-                if (mOWDevice.isOneWheelPlus.get()) {
-                    updateLog("Ridemode changed to:" + position + 4);
-                    mOWDevice.setRideMode(getBluetoothUtil(),position + 4); // ow+ ble value for ridemode 4,5,6,7,8 (delirium)
-                } else {
-                    updateLog("Ridemode changed to:" + position + 1);
-                    mOWDevice.setRideMode(getBluetoothUtil(),position + 1); // ow uses 1,2,3 (expert)
-                }
-            } else {
-                Toast.makeText(mContext, "Not connected to Device!", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-    }
 }

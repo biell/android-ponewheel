@@ -148,9 +148,9 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
 
 
     @Override
-    public BluetoothGattCharacteristic getCharacteristic(String onewheelCharacteristicLightingMode) {
-        Timber.d("getCharacteristic" + onewheelCharacteristicLightingMode);
-        return new BluetoothGattCharacteristic(UUID.fromString("asdf"),1,1);
+    public BluetoothGattCharacteristic getCharacteristic(String uuidLookup) {
+        Timber.d("getCharacteristic" + uuidLookup);
+        return new BluetoothGattCharacteristic(UUID.fromString(uuidLookup),1,1);
     }
 
     @Override
