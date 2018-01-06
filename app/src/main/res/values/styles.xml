@@ -75,7 +75,7 @@
         <item name="android:gravity">right</item>
         <item name="android:textSize">@dimen/font_size_stats</item>
     </style>
- <style name="GridItemLeft">
+    <style name="GridItemLeft">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_column">0</item>
@@ -85,5 +85,7 @@
     </style>
 
     <style name="CardView.DayNight" parent="CardView.Light" />
+
+
 
 </resources>

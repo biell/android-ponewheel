@@ -47,6 +47,7 @@ dependencies {
 
     implementation "com.android.support.constraint:constraint-layout:1.0.2"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+
     testCompile "junit:junit:4.12"
     testCompile "org.mockito:mockito-core:2.10.0"
 
@@ -79,6 +80,7 @@ dependencies {
     implementation "com.github.rey5137:material:1.2.2"
     // https://github.com/rey5137/material
     implementation "org.honorato.multistatetogglebutton:multistatetogglebutton:0.2.1"
+    implementation 'com.anthonymandra:ToggleButtons:2.0.0'
 
     // RxJava
     implementation "com.patloew.rxlocation:rxlocation:1.0.3"

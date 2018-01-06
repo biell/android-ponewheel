@@ -1,14 +1,11 @@
 package net.kwatts.powtools.view;
 
-import android.app.Activity;
 import android.databinding.Observable;
-import android.graphics.Paint;
-import android.graphics.Rect;
 import android.support.v7.widget.CardView;
-import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 
 import com.rey.material.widget.Button;
@@ -21,13 +18,13 @@ import net.kwatts.powtools.util.BluetoothUtil;
 import java.util.ArrayList;
 import java.util.List;
 
-import timber.log.Timber;
-
 public class RideModeView {
 
     CardView rideModeCard;
-    final Activity activity;
+    final MainActivity activity;
     final OWDevice owDevice;
+    final List<Button> buttons = new ArrayList<>();
+
 
     public RideModeView(MainActivity activity, OWDevice owDevice) {
 
@@ -35,7 +32,6 @@ public class RideModeView {
         this.activity = activity;
         this.owDevice = owDevice;
 
-        CardView.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
         LinearLayout radioGroup = new LinearLayout(activity);
         radioGroup.setOrientation(LinearLayout.HORIZONTAL);
@@ -49,28 +45,32 @@ public class RideModeView {
         int rideModeButtonMargin = activity.getResources().getDimensionPixelSize(R.dimen.ride_mode_button_margin);
 
         int position = 0;
-        final List<Button> buttons = new ArrayList<>();
         for (String rideMode : rideModes) {
             Button button = new Button(activity);
             buttons.add(button);
 
-//            TextViewCompat.setAutoSizeTextTypeWithDefaults(button, TextViewCompat.AUTO_SIZE_TEXT_TYPE_UNIFORM);
             button.setGravity(Gravity.CENTER);
             button.setMaxLines(1);
 
             button.setText(rideMode);
-            LinearLayout.MarginLayoutParams textViewParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            LinearLayout.MarginLayoutParams textViewParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
 //            textViewParams.setMargins(0, rideModeButtonMargin, rideModeButtonMargin, rideModeButtonMargin);
             radioGroup.addView(button, textViewParams);
 
             final int positionIdentifier = position;
-            button.setOnClickListener(v -> onButtonPressed(owDevice, activity.getBluetoothUtil(), positionIdentifier));
+            button.setOnClickListener(v -> onButtonPressed(owDevice, activity.getBluetoothUtil(), positionIdentifier, button));
 
             position++;
         }
         rideModeCard.setPadding(rideModeButtonMargin, rideModeButtonMargin,rideModeButtonMargin,rideModeButtonMargin);
-        rideModeCard.addView(radioGroup, params);
+
+
+        HorizontalScrollView scrollView = new HorizontalScrollView(activity);
+        scrollView.addView(radioGroup);
+
+        CardView.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rideModeCard.addView(scrollView, params);
 
         owDevice.isConnected.addOnPropertyChangedCallback(new Observable.OnPropertyChangedCallback() {
             @Override
@@ -79,32 +79,9 @@ public class RideModeView {
             }
         });
         updateEnabledState(buttons);
-
-
-//
-//
-//        mRideModeToggleButton = this.findViewById(R.id.mstb_multi_ridemodes);
-//        if (owDevice.isOneWheelPlus.get()) {
-//            mRideModeToggleButton.setElements(getResources().getStringArray(R.array.owplus_ridemode_array));
-//        } else {
-//            mRideModeToggleButton.setElements(getResources().getStringArray(R.array.ow_ridemode_array));
-//        }
-//
-//        mRideModeToggleButton.setOnValueChangedListener(position -> {
-//            if (owDevice.isConnected.get()) {
-//                Log.d(TAG, "owDevice.setRideMode button pressed:" + position);
-//                if (owDevice.isOneWheelPlus.get()) {
-//                    updateLog("Ridemode changed to:" + position + 4);
-//                    owDevice.setRideMode(getBluetoothUtil(),position + 4); // ow+ ble value for ridemode 4,5,6,7,8 (delirium)
-//                } else {
-//                    updateLog("Ridemode changed to:" + position + 1);
-//                    owDevice.setRideMode(getBluetoothUtil(),position + 1); // ow uses 1,2,3 (expert)
-//                }
-//            } else {
-//                Toast.makeText(mContext, "Not connected to Device!", Toast.LENGTH_SHORT).show();
-//            }
-//        });
-
+        for (Button button1 : buttons) {
+            button1.setBackgroundResource(android.R.drawable.btn_default);
+        }
     }
 
     public void updateEnabledState(List<Button> buttons) {
@@ -113,7 +90,7 @@ public class RideModeView {
         }
     }
 
-    public void onButtonPressed(OWDevice mOWDevice, BluetoothUtil bluetoothUtil, int positionIdentifier) {
+    public void onButtonPressed(OWDevice mOWDevice, BluetoothUtil bluetoothUtil, int positionIdentifier, Button button) {
         int rideModeInt;
         if (mOWDevice.isOneWheelPlus.get()) {
             rideModeInt = positionIdentifier + 4; // ow+ ble value for rideMode 4,5,6,7,8 (delirium)
@@ -126,6 +103,13 @@ public class RideModeView {
                 throw new IllegalStateException("Unknown rideModeInt for ow: " + rideModeInt);
             }
         }
+        activity.updateLog("Ridemode changed to:" + rideModeInt);
         mOWDevice.setRideMode(bluetoothUtil,rideModeInt);
+        button.setSelected(true);
+        for (Button button1 : buttons) {
+            button1.setBackgroundResource(android.R.drawable.btn_default);
+        }
+
+        button.setBackgroundColor(activity.getResources().getColor(R.color.colorPrimary));
     }
 }
