@@ -44,8 +44,7 @@ public class Util {
     }
 
     private static final byte[] twoBytes = new byte[2];
-    public static byte[] intToShortBytes(@IntRange(from = -32768, to = 32767) int v) {
-
+    public static byte[] shortToBytes(short v) {
         twoBytes[0] = (byte) (v >> 8 & 0xff);
         twoBytes[1] = (byte) (v & 0xff);
 

@@ -15,6 +15,7 @@ import java.util.UUID;
 
 import timber.log.Timber;
 
+import static net.kwatts.powtools.model.OWDevice.OnewheelCharacteristicCurrentAmps;
 import static net.kwatts.powtools.model.OWDevice.OnewheelCharacteristicFirmwareRevision;
 import static net.kwatts.powtools.model.OWDevice.OnewheelCharacteristicHardwareRevision;
 import static net.kwatts.powtools.model.OWDevice.OnewheelCharacteristicLifetimeOdometer;
@@ -89,9 +90,9 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
         owDevice.deviceMacAddress.set(deviceMacAddress);
         owDevice.deviceMacName.set(deviceMacName);
 
-        setIntCharacteristic(OnewheelCharacteristicHardwareRevision, 1);
-        setIntCharacteristic(OnewheelCharacteristicFirmwareRevision, 2);
-        setIntCharacteristic(OnewheelCharacteristicLifetimeOdometer, 1000);
+        setShortCharacteristic(OnewheelCharacteristicHardwareRevision, (short) 1);
+        setShortCharacteristic(OnewheelCharacteristicFirmwareRevision, (short) 2);
+        setShortCharacteristic(OnewheelCharacteristicLifetimeOdometer, (short) 1000);
 
         Random random = new Random();
         Runnable runnable = new Runnable() {
@@ -99,7 +100,7 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
             @Override
             public void run() {
                 Timber.d("on Mock Loop");
-                setIntCharacteristic(OnewheelCharacteristicSpeedRpm, random.nextInt(600));
+                setShortCharacteristic(OnewheelCharacteristicSpeedRpm, (short) random.nextInt(600));
 
                 byte[] temp = new byte[2];
                 int controllerTemp = (int) Util.far2cel(random.nextInt(30) + 90);
@@ -122,6 +123,11 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
                 setByteCharacteristic(OnewheelCharacteristicStatusError, deviceStatus);
                 mainActivity.updateBatteryRemaining(random.nextInt(20) + 80);
 
+                float amps = random.nextFloat() * 4f; // TODO whats a good 'max' mock value?
+//                Timber.d("amps = " + amps);
+                short currentAmpsVal = (short) (amps * 1000f / 1.8f);
+                setShortCharacteristic(OnewheelCharacteristicCurrentAmps, currentAmpsVal);
+
                 mockLoopHandler.postDelayed(this, App.INSTANCE.getSharedPreferences().getLoggingFrequency());
             }
         };
@@ -140,12 +146,11 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
         owDevice.processUUID(characteristic);
     }
 
-    void setIntCharacteristic(String mockOnewheelCharacteristic, int v) {
+    void setShortCharacteristic(String mockOnewheelCharacteristic, short v) {
         BluetoothGattCharacteristic characteristic = new BluetoothGattCharacteristic(UUID.fromString(mockOnewheelCharacteristic), 0, 0);
-        characteristic.setValue(Util.intToShortBytes(v));
+        characteristic.setValue(Util.shortToBytes(v));
         owDevice.processUUID(characteristic);
     }
-
 
     @Override
     public BluetoothGattCharacteristic getCharacteristic(String onewheelCharacteristicLightingMode) {

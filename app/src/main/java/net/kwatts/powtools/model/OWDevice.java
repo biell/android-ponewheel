@@ -540,7 +540,6 @@ gatttool --device=D0:39:72:BE:0A:32 --char-write-req --value=7500 --handle=0x004
         int motorTemp = incomingCharacteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 1);
 
         setFormattedTempWithMetricPreference(characteristics.get(OnewheelCharacteristicTemperature), controllerTemp);
-        Timber.d("controllerTemp = " + controllerTemp);
         setFormattedTempWithMetricPreference(characteristics.get(MockOnewheelCharacteristicMotorTemp), motorTemp);
     }
 
@@ -673,6 +672,7 @@ gatttool --device=D0:39:72:BE:0A:32 --char-write-req --value=7500 --handle=0x004
             multiplier = 0.9f;
         }
         final float amps = incoming / 1000.0f * multiplier;
+//        Timber.d("amps = " + amps);
         dc.value.set(String.format(Locale.ENGLISH, "%.2f",amps));
     }
 
