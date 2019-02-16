@@ -38,6 +38,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.security.DigestInputStream;
 
+import android.databinding.ObservableField;
+
 import timber.log.Timber;
 
 public class BluetoothUtilImpl implements BluetoothUtil{
@@ -64,6 +66,10 @@ public class BluetoothUtilImpl implements BluetoothUtil{
     private int mRetryCount = 0;
 
 
+    private boolean isObfucked = false;
+    private boolean sendKey = true;
+    public static ObservableField<String> isOWFound = new ObservableField<>();
+
 
 
     @Override
@@ -80,16 +86,20 @@ public class BluetoothUtilImpl implements BluetoothUtil{
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Timber.d( "Bluetooth connection state change: address=" + gatt.getDevice().getAddress()+ " status=" + status + " newState=" + newState);
+            Timber.d( "BluetoothProfile.STATE state change: address=" + gatt.getDevice().getAddress()+ " status=" + status + " state=" + newState);
             if (newState == BluetoothProfile.STATE_CONNECTED) {
+                Timber.d("BluetoothProfile.STATE_CONNECTED: " + gatt.getDevice().getName() + "," + gatt.getDevice().getAddress());
+                isOWFound.set("true");
                 gatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Timber.d("There was a BluetoothProfile.STATE_DISCONNECTED: name=" + gatt.getDevice().getName() + " address=" + gatt.getDevice().getAddress());
+                Timber.d("BluetoothProfile.STATE_DISCONNECTED: " + gatt.getDevice().getName() + " ," + gatt.getDevice().getAddress());
+                App.INSTANCE.getSharedPreferences().setStatusMode(0);
+                isOWFound.set("false");
                 if (gatt.getDevice().getAddress().equals(mOWDevice.deviceMacAddress.get())) {
                     onOWStateChangedToDisconnected(gatt);
                 }
-                //updateLog("--> Closed " + gatt.getDevice().getAddress());
-                //Timber.d( "Disconnect:" + gatt.getDevice().getAddress());
+            } else {
+                Timber.w("Unknown BluetoothProfile state change!");
             }
         }
 
@@ -102,11 +112,13 @@ public class BluetoothUtilImpl implements BluetoothUtil{
             owGatService = gatt.getService(UUID.fromString(OWDevice.OnewheelServiceUUID));
 
             if (owGatService == null) {
+                Timber.w("Bluetooth sucks sometimes, owGatService is null");
+                /*
                 if (gatt.getDevice().getName() == null) {
                     Timber.i("--> " + gatt.getDevice().getAddress() + " not OW, moving on.");
                 } else {
                     Timber.i("--> " + gatt.getDevice().getName() + " not OW, moving on.");
-                }
+                } */
                 return;
             }
 
@@ -127,9 +139,17 @@ public class BluetoothUtilImpl implements BluetoothUtil{
 
             scanLeDevice(false); // We can stop scanning...
 
+            // delay to avoid weird disconnect and then read the firmware revision, needed for firmware workfl- oh, GEMINI, you dirty dog.
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mGatt.readCharacteristic(owGatService.getCharacteristic(UUID.fromString(OWDevice.OnewheelCharacteristicFirmwareRevision)));
+                }
+            },500);
 
 
-
+            // updated per https://github.com/Nanoux/Onewave/blob/master/app/src/main/java/com/nanowheel/nanoux/nanowheel/util/BluetoothUtilImpl.java
+            /*
             for(OWDevice.DeviceCharacteristic deviceCharacteristic: mOWDevice.getNotifyCharacteristics()) {
                 String uuid = deviceCharacteristic.uuid.get();
                 if (uuid != null && deviceCharacteristic.isNotifyCharacteristic) {
@@ -156,13 +176,6 @@ public class BluetoothUtilImpl implements BluetoothUtil{
                 }
             }
 
-
-
-
-
-
-
-
             for(OWDevice.DeviceCharacteristic dc : mOWDevice.getReadCharacteristics()) {
                 if (dc.uuid.get() != null) {
                     BluetoothGattCharacteristic c = owGatService.getCharacteristic(UUID.fromString(dc.uuid.get()));
@@ -179,7 +192,7 @@ public class BluetoothUtilImpl implements BluetoothUtil{
                         }
                     }
                 }
-            }
+            } */
 
 
         }
@@ -188,30 +201,46 @@ public class BluetoothUtilImpl implements BluetoothUtil{
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic c, int status) {
             String characteristic_uuid = c.getUuid().toString();
             Timber.d( "BluetoothGattCallback.onCharacteristicRead: CharacteristicUuid=" + characteristic_uuid + "status=" + status);
-            characteristicReadQueue.remove();
+            if(characteristicReadQueue.size() > 0) {
+                characteristicReadQueue.remove();
+            }
+
 
             if (characteristic_uuid.equals(OWDevice.OnewheelCharacteristicFirmwareRevision)) {
-                Timber.d("GEMINI step #1: trigger sending the 20 byte input key over multiple serial ble notifications");
-                gatt.writeCharacteristic(c);
+                int version = Util.unsignedShort(c.getValue());
+                if(version >= 4034) {
+                    Timber.d("GEMINI step #1: trigger sending the 20 byte input key over multiple serial ble notifications");
+                    isObfucked = true;
+                    //owGatService.getCharacteristic(UUID.fromString(OWDevice.OnewheelCharacteristicFirmwareRevision)).setValue(version+"");
+                    BluetoothGattCharacteristic gC = owGatService.getCharacteristic(UUID.fromString(OWDevice.OnewheelCharacteristicUartSerialRead));
+                    gatt.setCharacteristicNotification(gC, true);
+                    BluetoothGattDescriptor descriptor = gC.getDescriptor(UUID.fromString(OWDevice.OnewheelConfigUUID));
+                    descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                    gatt.writeDescriptor(descriptor);
+                } else {
+                    Timber.d("connected to OW firmware >= 4034 - Not GEMINI, connecting OW as normal");
+                    isObfucked = false;
+                    whenActuallyConnected();
+                }
+                //gatt.writeCharacteristic(c);
             } else if (characteristic_uuid.equals(OWDevice.OnewheelCharacteristicBatteryRemaining)) {
                 mainActivity.updateBatteryRemaining(c.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 1));
             } else if (characteristic_uuid.equals(OWDevice.OnewheelCharacteristicRidingMode)) {
                  Timber.d( "Got ride mode from the main UI thread:" + c.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 1));
-            } else if (characteristic_uuid.equals(OWDevice.OnewheelCharacteristicUartSerialRead)) {
-                unlockKeyGemini(gatt, c.getValue());
             }
+            //else if (characteristic_uuid.equals(OWDevice.OnewheelCharacteristicUartSerialRead)) {
+            //    unlockKeyGemini(gatt, c.getValue());
+            //}
 
 
 
+            // Used to see raw parsed values coming through, only for debug tho.
             if (BuildConfig.DEBUG) {
                 byte[] v_bytes = c.getValue();
-
-
                 StringBuilder sb = new StringBuilder();
                 for (byte b : c.getValue()) {
                     sb.append(String.format("%02x", b));
                 }
-
                 Timber.d( "HEX %02x: " + sb);
                 Timber.d( "Arrays.toString() value: " + Arrays.toString(v_bytes));
                 Timber.d( "String value: " + c.getStringValue(0));
@@ -221,6 +250,8 @@ public class BluetoothUtilImpl implements BluetoothUtil{
             }
 
             mOWDevice.processUUID(c);
+
+
             // Callback to make sure the queue is drained
             if (characteristicReadQueue.size() > 0) {
                 gatt.readCharacteristic(characteristicReadQueue.element());
@@ -236,38 +267,178 @@ public class BluetoothUtilImpl implements BluetoothUtil{
             //Timber.d( "BluetoothGattCallback.onCharacteristicChanged: CharacteristicUuid=" + c.getUuid().toString());
 
             // https://github.com/ponewheel/android-ponewheel/issues/86
-            if (c.getUuid().toString().equals(OWDevice.OnewheelCharacteristicUartSerialRead)) {
-                unlockKeyGemini(gatt,c.getValue());
-            } else if(c.getUuid().toString().equals(OWDevice.OnewheelCharacteristicBatteryRemaining)) {
+           // if (c.getUuid().toString().equals(OWDevice.OnewheelCharacteristicUartSerialRead)) {
+                //unlockKeyGemini(gatt,c.getValue());
+           // }
+
+
+            if (c.getUuid().toString().equals(OWDevice.OnewheelCharacteristicUartSerialRead) && isObfucked) {
+
+                try {
+                    inkey.write(c.getValue());
+
+                    if (inkey.toByteArray().length >= 20 && sendKey) {
+                        Timber.d("GEMINI Step #2: convert inkey=" + Arrays.toString(inkey.toByteArray()));
+                        // Do the magic, write the characteristic...
+                        ByteArrayOutputStream outkey = new ByteArrayOutputStream();
+                        outkey.write(Util.StringToByteArrayFastest("43:52:58"));
+
+                        // Take almost all of the bytes from the input array. This is almost the same as the last part as
+                        // we are ignoring the first 3 and the last bytes.
+                        byte[] arrayToMD5_part1 = Arrays.copyOfRange(inkey.toByteArray(), 3, 19);
+                        byte[] arrayToMD5_part2 = Util.StringToByteArrayFastest("D9255F0F23354E19BA739CCDC4A91765");
+
+                        // New byte array we are going to MD5 hash. Part of the input string, part of this static string.
+                        ByteBuffer arrayToMD5 = ByteBuffer.allocate(arrayToMD5_part1.length + arrayToMD5_part2.length);
+                        arrayToMD5.put(arrayToMD5_part1);
+                        arrayToMD5.put(arrayToMD5_part2);
+
+                        // Start prepping the MD5 hash
+                        MessageDigest localMessageDigest = MessageDigest.getInstance("MD5");
+                        DigestInputStream digestInputStream = new DigestInputStream(new ByteArrayInputStream(arrayToMD5.array()), localMessageDigest);
+
+                        // This is actually the byte that represents a space character. ¯\_(ツ)_/¯
+                        byte[] arrayOfByte = new byte[] { 101 };
+                        while (digestInputStream.read(arrayOfByte) != -1) { }
+                        digestInputStream.close();
+                        byte[] md5Hash = localMessageDigest.digest();
+
+                        // Add it to the 3 bytes we already have.
+                        outkey.write(md5Hash);
+
+                        // Validate the check byte.
+                        byte checkByte = 0;
+                        int j = outkey.toByteArray().length;
+                        int i = 0;
+                        while (i < j)
+                        {
+                            checkByte = ((byte)(outkey.toByteArray()[i] ^ checkByte));
+                            i += 1;
+                        }
+                        outkey.write(checkByte);
+
+                        // Finally, write out to the OW serial UART characteristic
+                        Timber.d("GEMINI Step #3: write outkey=" + Arrays.toString(outkey.toByteArray()));
+                        BluetoothGattCharacteristic lc = owGatService.getCharacteristic(UUID.fromString(OWDevice.OnewheelCharacteristicUartSerialWrite));
+                        lc.setValue(outkey.toByteArray());
+
+
+                        boolean worked = gatt.writeCharacteristic(lc);
+                        if(!worked){
+                            sendKey = true;
+                        }else{
+                            sendKey = false;
+                            gatt.setCharacteristicNotification(c,false);
+                        }
+                        outkey.reset();
+
+                    }
+                } catch (Exception e) {
+                    Timber.e("GEMINI Exception with GEMINI obfuckstation:" + e.getMessage());
+                }
+            }
+
+            if(c.getUuid().toString().equals(OWDevice.OnewheelCharacteristicBatteryRemaining)) {
                 mainActivity.updateBatteryRemaining(c.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 1));
             }
 
             mOWDevice.processUUID(c);
+
+
+           // if (mOWDevice.characteristics.get(c.getUuid().toString()).state == 5){
+            //    Timber.d("TESTING","HUZZAH! CHANGED");
+           // }
         }
 
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             Timber.i( "onCharacteristicWrite: " + status);
+            if (characteristic.getUuid().toString().equals(OWDevice.OnewheelCharacteristicUartSerialWrite)) {
+                Timber.d("Connected to GEMINI firmware!");
+                whenActuallyConnected();
+            }
+
+            if (characteristic.getUuid().toString().equals(OWDevice.OnewheelCharacteristicUNKNOWN2)){
+                //TODO: Custom ride modes
+                /*
+                if (customQueue.size() > 0){
+                    customQueue.remove();
+                    if (customQueue.size() > 0){
+                        writeCustomRidemode(customQueue.element());
+                    }else{
+                        invalidateCustomRidemode();
+                    }
+                } */
+
+            }
+
         }
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             Timber.i( "onDescriptorWrite: " + status);
-            descriptorWriteQueue.remove();  //pop the item that we just finishing writing
-            //if there is more to write, do it!
-            if(descriptorWriteQueue.size() > 0) {
-                gatt.writeDescriptor(descriptorWriteQueue.element());
-            } else if(characteristicReadQueue.size() > 0) {
-                gatt.readCharacteristic(characteristicReadQueue.element());
+            if (isObfucked && descriptor.getCharacteristic().getUuid().toString().equals(OWDevice.OnewheelCharacteristicUartSerialRead)){
+                Timber.d("GEMINI", "GEMINI step #1: trigger sending the 20 byte input key over multiple serial ble notifications");
+                gatt.writeCharacteristic(owGatService.getCharacteristic(UUID.fromString(OWDevice.OnewheelCharacteristicFirmwareRevision)));
+            }
+
+            OWDevice.DeviceCharacteristic dc = mOWDevice.characteristics.get(descriptor.getCharacteristic().getUuid().toString());
+            if (dc != null) {
+                if (dc.isNotifyCharacteristic) {
+                    gatt.setCharacteristicNotification(owGatService.getCharacteristic(UUID.fromString(dc.uuid.get())), true);
+                }
+            }
+            if (descriptorWriteQueue.size() > 0){
+                descriptorWriteQueue.remove();
+                if (descriptorWriteQueue.size() > 0){
+                    gatt.writeDescriptor(descriptorWriteQueue.element());
+                }else{
+                    if(characteristicReadQueue.size() > 0){
+                        gatt.readCharacteristic(characteristicReadQueue.element());
+                    }
+                }
             }
         }
 
 
     };
 
-    private void updateLog(String s) {
-        mainActivity.updateLog(s);
+    // Lifted from
+    // https://github.com/Nanoux/Onewave/blob/master/app/src/main/java/com/nanowheel/nanoux/nanowheel/util/BluetoothUtilImpl.java
+    void whenActuallyConnected() {
+        Timber.i( "CONNECTED TO ONEWHEEL, SETTING UP BLE NOTIFICATIONS");
+        for(OWDevice.DeviceCharacteristic dc : mOWDevice.getNotifyCharacteristics()){
+            if (dc.isNotifyCharacteristic) {
+                Timber.i( "ENABLING NOTIFICATIONS FOR: " + dc.ui_name.get() + "," + dc.key.get() + "," + dc.uuid.get());
+                BluetoothGattCharacteristic gC = owGatService.getCharacteristic(UUID.fromString(dc.uuid.get()));
+                mGatt.setCharacteristicNotification(gC,true);
+                BluetoothGattDescriptor descriptor = gC.getDescriptor(UUID.fromString(OWDevice.OnewheelConfigUUID));
+                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                descriptorWriteQueue.add(descriptor);
+                if (descriptorWriteQueue.size() == 1) {
+                    mGatt.writeDescriptor(descriptor);
+                }
+
+                //characteristicReadQueue.add(gC);
+            }
+        }
+
+
+        for(OWDevice.DeviceCharacteristic dc : mOWDevice.getReadCharacteristics()){
+           // if (dc.state == 3){
+                Timber.i( "INITIAL READS FOR: " + dc.ui_name.get() + "," + dc.key.get() + "," + dc.uuid.get());
+                //BluetoothGattCharacteristic gC = owGatService.getCharacteristic(UUID.fromString(dc.uuid.get()));
+                //if (gC != null) { characteristicReadQueue.add(gC); }
+          //  }
+        }
+
+        //TODO: ride modes
+        //mOWDevice.characteristics.get(OWDevice.MockOnewheelCharacteristicStance).value.set(null);
+        //mOWDevice.characteristics.get(OWDevice.MockOnewheelCharacteristicCarvability).value.set(null);
+        //mOWDevice.characteristics.get(OWDevice.MockOnewheelCharacteristicAggressiveness).value.set(null);
+
+       App.INSTANCE.getSharedPreferences().setStatusMode(2);
     }
 
 
@@ -480,6 +651,9 @@ public class BluetoothUtilImpl implements BluetoothUtil{
         return var1;
     }
 
+    public boolean isObfucked(){
+        return isObfucked;
+    }
 
     @Override
     public boolean isConnected() {
@@ -509,6 +683,9 @@ public class BluetoothUtilImpl implements BluetoothUtil{
         owGatService = null;
         // Added more 3/12/2018
         this.characteristicReadQueue.clear();
+        inkey.reset();
+        isOWFound.set("false");
+        sendKey = true;
 
     }
 
@@ -538,6 +715,9 @@ public class BluetoothUtilImpl implements BluetoothUtil{
         descriptorWriteQueue.clear();
         // Added stuff 10/23 to clean fix
         owGatService = null;
+        inkey.reset();
+        isOWFound.set("false");
+        sendKey = true;
     }
 
     @Override

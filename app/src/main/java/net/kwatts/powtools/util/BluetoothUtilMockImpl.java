@@ -28,6 +28,7 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
     private OWDevice owDevice;
     Handler mockLoopHandler = new Handler();
     private boolean isScanning = false;
+    private boolean isObfucked = false;
 
 
     @Override
@@ -81,6 +82,11 @@ public class BluetoothUtilMockImpl implements BluetoothUtil{
         updateLog("connected");
         onConnected();
     }
+
+    public boolean isObfucked(){
+        return isObfucked;
+    }
+
 
     private void onConnected() {
         owDevice.isConnected.set(true);

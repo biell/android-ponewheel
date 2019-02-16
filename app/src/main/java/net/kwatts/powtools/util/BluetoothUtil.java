@@ -11,6 +11,7 @@ public interface BluetoothUtil {
     void disconnect();
     boolean isConnected();
     boolean isScanning();
+    boolean isObfucked();
     void startScanning();
     BluetoothGattCharacteristic getCharacteristic(String onewheelCharacteristicLightingMode);
     void writeCharacteristic(BluetoothGattCharacteristic lc);

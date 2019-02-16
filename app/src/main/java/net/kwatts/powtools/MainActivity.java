@@ -285,6 +285,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         super.onCreate(savedInstanceState);
 
         mContext = this;
+      //  com.crashlytics.android.Crashlytics.getInstance().crash();
 
         startStatusNotification();
 
@@ -527,8 +528,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             menu.findItem(R.id.menu_disconnect).setVisible(true);
             menu.findItem(R.id.menu_stop).setVisible(false);
             menu.findItem(R.id.menu_scan).setVisible(false);
-            Timber.d("GEMINI Step #1: Connected to OW board, sending the key/challenge kickoff...");
-            mOWDevice.sendKeyChallengeForGemini(getBluetoothUtil());
+            //Timber.d("GEMINI Step #1: Connected to OW board, sending the key/challenge kickoff...");
+            //mOWDevice.sendKeyChallengeForGemini(getBluetoothUtil());
             //menu.findItem(R.id.menu_ow_light_on).setVisible(true);
             //menu.findItem(R.id.menu_ow_ridemode).setVisible(true);
         } else if (!getBluetoothUtil().isScanning()) {
