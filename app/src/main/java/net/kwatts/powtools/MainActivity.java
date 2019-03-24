@@ -308,7 +308,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             showEula();
         }
 
-        startService(new Intent(getApplicationContext(), VibrateService.class));
+
+        //startService(new Intent(getApplicationContext(), VibrateService.class));
 
         setupOWDevice();
 
